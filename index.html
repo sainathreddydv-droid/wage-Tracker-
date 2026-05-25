@@ -47,7 +47,7 @@ var KEY_E='pepes:entries:v3',KEY_P='pepes:payments:v3',KEY_PLACE='pepes:meta:v3'
 function lg(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function ls(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function td(){return new Date().toISOString().slice(0,10)}
-function gF(s){var d=new Date(s+'T00:00:00'),dy=d.getDay(),df=(dy-5+7)%7;d.setDate(d.getDate()-df);return d.toISOString().slice(0,10)}
+function gF(s){var d=new Date(s+'T00:00:00'),dy=d.getDay(),df=(dy-1+7)%7;d.setDate(d.getDate()-df);return d.toISOString().slice(0,10)}
 function cat(en,t){var tf=gF(t),lf=new Date(tf+'T00:00:00');lf.setDate(lf.getDate()-7);var lfs=lf.toISOString().slice(0,10);if(en.date>=tf)return'thisWeek';if(en.date>=lfs)return'dueNow';return'overdue'}
 function fd(d){return new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}
 function fwr(ws,we){var s=new Date(ws+'T00:00:00'),e=new Date(we+'T00:00:00'),sm=s.toLocaleDateString('en-GB',{month:'short'}),em=e.toLocaleDateString('en-GB',{month:'short'});return sm===em?s.getDate()+'–'+e.getDate()+' '+sm:s.getDate()+' '+sm+' – '+e.getDate()+' '+em}
@@ -140,7 +140,7 @@ return (
 <div>
 <div className="text-[10px] tracking-[0.4em] text-amber-600/70 font-mono">DAILY LEDGER</div>
 <button onClick={function(){sRV(vn);sSR(true)}} className="text-left smooth"><h1 className="text-5xl font-serif italic text-amber-100 mt-1 tracking-tight leading-none">{vn}</h1></button>
-<div className="text-[11px] text-stone-500 mt-2 font-mono flex items-center gap-2 flex-wrap"><Cl size={11} className="opacity-60"/>{fd(t)}<span className="text-stone-700">·</span><span>Fri–Thu weeks</span></div>
+<div className="text-[11px] text-stone-500 mt-2 font-mono flex items-center gap-2 flex-wrap"><Cl size={11} className="opacity-60"/>{fd(t)}<span className="text-stone-700">·</span><span>Mon–Sun weeks</span></div>
 </div>
 <button onClick={function(){sSS(true)}} className="smooth tap-scale w-9 h-9 rounded-full border border-amber-800/30 flex items-center justify-center text-amber-400 shrink-0"><Sh size={15}/></button>
 </div>
