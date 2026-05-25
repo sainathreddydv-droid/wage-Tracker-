@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pepes">
+<meta name="theme-color" content="#0c0a09">
+<title>Pepes Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<style>
+html,body{background:#0c0a09;color:#fefce8;overscroll-behavior:contain;-webkit-tap-highlight-color:transparent;margin:0}
+body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}50%{box-shadow:0 0 18px 1px rgba(248,113,113,.25)}}
+@keyframes ambientGlow{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}50%{box-shadow:0 0 22px 2px rgba(251,191,36,.18)}}
+.fadeUp{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) backwards}
+.fadeIn{animation:fadeIn .3s ease-out backwards}
+.slideUp{animation:slideUp .35s cubic-bezier(.16,1,.3,1)}
+.overdueGlow{animation:pulseGlow 2.6s ease-in-out infinite}
+.dueGlow{animation:ambientGlow 3.5s ease-in-out infinite}
+.num-tabular{font-variant-numeric:tabular-nums}
+.tap-scale:active{transform:scale(.97)}
+.smooth{transition:all .2s cubic-bezier(.16,1,.3,1)}
+#loader{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0c0a09;color:#fbbf24;font-family:ui-monospace,monospace;font-size:12px;letter-spacing:.3em;text-transform:uppercase;padding:20px;text-align:center;z-index:999}
+#loader .err{color:#f87171;text-transform:none;letter-spacing:normal;font-size:12px;max-width:320px;margin-top:16px;white-space:pre-wrap;word-break:break-word}
+#root:not(:empty) ~ #loader{display:none}
+</style>
+</head>
+<body class="bg-stone-950 text-amber-50 min-h-screen">
+<div id="root"></div>
+<div id="loader"><div>Loading ledger…</div><div class="err" id="err"></div></div>
+<script>
+window.addEventListener('error',function(e){var el=document.getElementById('err');if(el)el.textContent=(e.message||'Unknown')+(e.filename?' ['+e.filename.split('/').pop()+':'+e.lineno+']':'')});
+window.addEventListener('unhandledrejection',function(e){var el=document.getElementById('err');if(el)el.textContent='Promise: '+(e.reason&&e.reason.message?e.reason.message:String(e.reason))});
+setTimeout(function(){var r=document.getElementById('root'),el=document.getElementById('err');if(r&&!r.firstChild&&el&&!el.textContent)el.textContent='Slow load — check connection.'},8000);
+</script>
+<script type="text/babel">
+var u=React.useState,e=React.useEffect,m=React.useMemo,r=React.useRef;
+var KEY_E='pepes:entries:v3',KEY_P='pepes:payments:v3',KEY_PLACE='pepes:meta:v3',DW=36;
+function lg(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function ls(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function td(){return new Date().toISOString().slice(0,10)}
+function gF(s){var d=new Date(s+'T00:00:00'),dy=d.getDay(),df=(dy-5+7)%7;d.setDate(d.getDate()-df);return d.toISOString().slice(0,10)}
+function cat(en,t){var tf=gF(t),lf=new Date(tf+'T00:00:00');lf.setDate(lf.getDate()-7);var lfs=lf.toISOString().slice(0,10);if(en.date>=tf)return'thisWeek';if(en.date>=lfs)return'dueNow';return'overdue'}
+function fd(d){return new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}
+function fwr(ws,we){var s=new Date(ws+'T00:00:00'),e=new Date(we+'T00:00:00'),sm=s.toLocaleDateString('en-GB',{month:'short'}),em=e.toLocaleDateString('en-GB',{month:'short'});return sm===em?s.getDate()+'–'+e.getDate()+' '+sm:s.getDate()+' '+sm+' – '+e.getDate()+' '+em}
+function gbw(ens,t){var mp=new Map();ens.forEach(function(e){var k=gF(e.date);if(!mp.has(k))mp.set(k,[]);mp.get(k).push(e)});var tf=gF(t),lf=new Date(tf+'T00:00:00');lf.setDate(lf.getDate()-7);var lfs=lf.toISOString().slice(0,10),ar=[];mp.forEach(function(it,ws){it.sort(function(a,b){return a.date.localeCompare(b.date)});var we=new Date(ws+'T00:00:00');we.setDate(we.getDate()+6);var wge=it.reduce(function(s,e){return s+(+e.wage||0)},0),ch=it.reduce(function(s,e){return s+(+e.charges||0)},0),st;if(ws>=tf)st='thisWeek';else if(ws>=lfs)st='dueNow';else st='overdue';ar.push({weekStart:ws,weekEnd:we.toISOString().slice(0,10),entries:it,wage:wge,charges:ch,total:wge+ch,status:st})});ar.sort(function(a,b){var o={overdue:0,dueNow:1,thisWeek:2};if(o[a.status]!==o[b.status])return o[a.status]-o[b.status];return a.weekStart.localeCompare(b.weekStart)});return ar}
+function ucu(tg,du){if(du===undefined)du=600;var s=u(tg),v=s[0],sv=s[1],pr=r(tg);e(function(){var st=pr.current;if(st===tg){sv(tg);return}var ti=Date.now(),raf;function tk(){var el=Date.now()-ti,p=Math.min(1,el/du),ea=1-Math.pow(1-p,3);sv(st+(tg-st)*ea);if(p<1)raf=requestAnimationFrame(tk);else{pr.current=tg;sv(tg)}}raf=requestAnimationFrame(tk);return function(){cancelAnimationFrame(raf)}},[tg,du]);return Math.round(v)}
+
+var IP=function(s,w){return{width:s||16,height:s||16,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:w||2,strokeLinecap:"round",strokeLinejoin:"round"}};
+var Plus=function(p){return <svg {...IP(p.size,p.strokeWidth)}><path d="M5 12h14"/><path d="M12 5v14"/></svg>};
+var Pencil=function(p){return <svg {...IP(p.size)}><path d="M21.17 6.81a1 1 0 0 0-3.99-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg>};
+var Trash=function(p){return <svg {...IP(p.size)}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>};
+var Copy=function(p){return <svg {...IP(p.size)}><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>};
+var X=function(p){return <svg {...IP(p.size)}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>};
+var Ck=function(p){return <svg {...IP(p.size,p.strokeWidth)} className={p.className}><path d="M20 6 9 17l-5-5"/></svg>};
+var Sh=function(p){return <svg {...IP(p.size)}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" x2="15.4" y1="13.5" y2="17.5"/><line x1="15.4" x2="8.6" y1="6.5" y2="10.5"/></svg>};
+var Sp=function(p){return <svg {...IP(p.size)} className={p.className}><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg>};
+var Sn=function(p){return <svg {...IP(p.size)}><path d="M14.5 21.7a.5.5 0 0 0 .94-.02l6.5-19a.5.5 0 0 0-.64-.64l-19 6.5a.5.5 0 0 0-.02.94l7.93 3.18a2 2 0 0 1 1.11 1.11z"/><path d="m21.85 2.15-10.94 10.94"/></svg>};
+var Wa=function(p){return <svg {...IP(p.size,p.strokeWidth)}><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>};
+var Cl=function(p){return <svg {...IP(p.size)} className={p.className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>};
+var Al=function(p){return <svg {...IP(p.size)}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>};
+
+function iE(){return[
+{id:'e1',date:'2026-04-25',wage:0,charges:0,paid:true,paymentId:'p2',notes:'Fill in'},
+{id:'e2',date:'2026-04-26',wage:0,charges:0,paid:true,paymentId:'p2',notes:'Fill in'},
+{id:'e3',date:'2026-04-27',wage:0,charges:0,paid:true,paymentId:'p2',notes:'Fill in'},
+{id:'e4',date:'2026-05-01',wage:36,charges:0,paid:true,paymentId:'p3',notes:''},
+{id:'e5',date:'2026-05-02',wage:36,charges:24,paid:true,paymentId:'p3',notes:''},
+{id:'e6',date:'2026-05-03',wage:36,charges:24,paid:true,paymentId:'p3',notes:''},
+{id:'e7',date:'2026-05-08',wage:36,charges:21,paid:false,notes:''},
+{id:'e8',date:'2026-05-09',wage:36,charges:18,paid:false,notes:''},
+{id:'e9',date:'2026-05-10',wage:36,charges:20,paid:false,notes:''},
+{id:'e10',date:'2026-05-12',wage:0,charges:100,paid:false,notes:'Verify'},
+{id:'e11',date:'2026-05-15',wage:16,charges:33,paid:false,notes:'Verify'},
+{id:'e12',date:'2026-05-16',wage:36,charges:22,paid:false,notes:''},
+{id:'e13',date:'2026-05-17',wage:36,charges:19,paid:false,notes:''},
+{id:'e14',date:'2026-05-18',wage:36,charges:18,paid:false,notes:''},
+{id:'e15',date:'2026-05-19',wage:36,charges:0,paid:false,notes:''},
+{id:'e16',date:'2026-05-22',wage:36,charges:20,paid:false,notes:''},
+{id:'e17',date:'2026-05-23',wage:36,charges:16,paid:false,notes:''},
+{id:'e18',date:'2026-05-24',wage:36,charges:25,paid:false,notes:''}]}
+function iP(){return[{id:'p1',date:'2026-05-02',amount:114,note:'Week of 17 Apr'},{id:'p2',date:'2026-05-10',amount:173,note:'Week of 24 Apr – 30 Apr'},{id:'p3',date:'2026-05-17',amount:177,note:'Week of 1 May – 7 May'}]}
+
+function App(){
+var es=u(function(){var v=lg(KEY_E);if(v){try{return JSON.parse(v)}catch(e){}}var i=iE();ls(KEY_E,JSON.stringify(i));return i});var en=es[0],sEn=es[1];
+var ps=u(function(){var v=lg(KEY_P);if(v){try{return JSON.parse(v)}catch(e){}}var i=iP();ls(KEY_P,JSON.stringify(i));return i});var py=ps[0],sPy=ps[1];
+var vs=u(function(){var v=lg(KEY_PLACE);if(v){try{var m=JSON.parse(v);if(m&&m.venue)return m.venue}catch(e){}}return'Pepes'});var vn=vs[0],sVn=vs[1];
+var ts=u('pending');var tb=ts[0],sTb=ts[1];
+var sfs=u(false);var sF=sfs[0],sSF=sfs[1];
+var eis=u(null);var eI=eis[0],sEI=eis[1];
+var fs=u({date:'',wage:'',charges:'',notes:''});var fo=fs[0],sFo=fs[1];
+var sps=u(false);var sP=sps[0],sSP=sps[1];
+var pss=u([]);var pSe=pss[0],sPSe=pss[1];
+var pas=u('');var pA=pas[0],sPA=pas[1];
+var pds=u('');var pD=pds[0],sPD=pds[1];
+var pcs=u({expected:0,label:''});var pC=pcs[0],sPC=pcs[1];
+var tos=u('');var to=tos[0],sTo=tos[1];
+var sss=u(false);var sS=sss[0],sSS=sss[1];
+var srs=u(false);var sR=srs[0],sSR=srs[1];
+var rvs=u('');var rV=rvs[0],sRV=rvs[1];
+var t=td();
+function svE(a){sEn(a);ls(KEY_E,JSON.stringify(a))}
+function svP(a){sPy(a);ls(KEY_P,JSON.stringify(a))}
+function svV(n){sVn(n);ls(KEY_PLACE,JSON.stringify({venue:n}))}
+var pn=m(function(){return en.filter(function(e){return!e.paid})},[en]);
+var pd=m(function(){return en.filter(function(e){return e.paid}).sort(function(a,b){return b.date.localeCompare(a.date)})},[en]);
+var dn=m(function(){return pn.filter(function(e){return cat(e,t)==='dueNow'})},[pn,t]);
+var od=m(function(){return pn.filter(function(e){return cat(e,t)==='overdue'})},[pn,t]);
+var tw=m(function(){return pn.filter(function(e){return cat(e,t)==='thisWeek'})},[pn,t]);
+function st(a){return a.reduce(function(s,e){return s+(+e.wage||0)+(+e.charges||0)},0)}
+var dnT=st(dn),odT=st(od),twT=st(tw);
+var dnA=ucu(dnT),odA=ucu(odT),twA=ucu(twT);
+function oA(){sEI(null);sFo({date:t,wage:String(DW),charges:'',notes:''});sSF(true)}
+function oE(e){sEI(e.id);sFo({date:e.date,wage:String(e.wage||''),charges:String(e.charges||''),notes:e.notes||''});sSF(true)}
+function sub(){if(!fo.date)return;var w=+fo.wage||0,c=+fo.charges||0;if(eI){svE(en.map(function(e){return e.id===eI?Object.assign({},e,{date:fo.date,wage:w,charges:c,notes:fo.notes}):e}));tt('Updated ✓')}else{svE(en.concat([{id:'e'+Date.now(),date:fo.date,wage:w,charges:c,notes:fo.notes,paid:false}]));tt('Saved ✓')}sSF(false)}
+function dE(id){if(!window.confirm('Delete?'))return;svE(en.filter(function(e){return e.id!==id}));tt('Deleted')}
+function oPW(w){sPSe(w.entries.map(function(e){return e.id}));sPA(String(w.total));sPD(t);sPC({expected:w.total,label:fwr(w.weekStart,w.weekEnd)});sSP(true)}
+function tPS(id){sPSe(function(p){return p.indexOf(id)>=0?p.filter(function(x){return x!==id}):p.concat([id])})}
+function sPay(){if(pSe.length===0||!pA)return;var pid='p'+Date.now();svP(py.concat([{id:pid,date:pD,amount:+pA,note:pC.label||(pSe.length+' entries')}]));svE(en.map(function(e){return pSe.indexOf(e.id)>=0?Object.assign({},e,{paid:true,paymentId:pid}):e}));sSP(false);tt('Paid 🎉')}
+function gS(){var it=od.concat(dn).sort(function(a,b){return a.date.localeCompare(b.date)});if(it.length===0)return'Hi boss,\n\nAll caught up. Thanks!';var x='Hi boss,\n\nPending payment for '+vn+':\n\n';var bw=gbw(it,t);bw.forEach(function(w){x+=fwr(w.weekStart,w.weekEnd)+' '+(w.status==='overdue'?'(overdue)':'(due now)')+'\n';w.entries.forEach(function(e){var p=[];if(e.wage)p.push('£'+e.wage);if(e.charges)p.push('£'+e.charges);x+='  • '+fd(e.date)+' — '+(p.join(' + ')||'(no entry)')+'\n'});x+='  Week total: £'+w.total+'\n\n'});var ta=it.reduce(function(s,e){return s+(+e.wage||0)+(+e.charges||0)},0);x+='Grand total: £'+ta+'\n\nCould we sort this? Thanks!';return x}
+function cp(tx){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(tx).then(function(){tt('Copied ✓')}).catch(function(){tt('Long-press to copy')})}else tt('Long-press to copy')}
+function tt(msg){sTo(msg);setTimeout(function(){sTo('')},1800)}
+function rA(){if(!window.confirm('Reset?'))return;svE(iE());svP(iP());tt('Reset')}
+function sFr(){if(!window.confirm('Clear all?'))return;svE([]);svP([]);tt('Fresh');sSS(false)}
+var sm="Hey, try this shift tracker. Open the URL on your phone → Share → Add to Home Screen. Your data is private.\n\n[paste URL]";
+function fm(n){return'£'+Math.round(n)}
+
+return (
+<div className="min-h-screen bg-stone-950 text-amber-50 pb-28 relative overflow-hidden">
+<div className="relative px-5 pt-9 pb-5 fadeUp">
+<div className="flex items-start justify-between">
+<div>
+<div className="text-[10px] tracking-[0.4em] text-amber-600/70 font-mono">DAILY LEDGER</div>
+<button onClick={function(){sRV(vn);sSR(true)}} className="text-left smooth"><h1 className="text-5xl font-serif italic text-amber-100 mt-1 tracking-tight leading-none">{vn}</h1></button>
+<div className="text-[11px] text-stone-500 mt-2 font-mono flex items-center gap-2 flex-wrap"><Cl size={11} className="opacity-60"/>{fd(t)}<span className="text-stone-700">·</span><span>Fri–Thu weeks</span></div>
+</div>
+<button onClick={function(){sSS(true)}} className="smooth tap-scale w-9 h-9 rounded-full border border-amber-800/30 flex items-center justify-center text-amber-400 shrink-0"><Sh size={15}/></button>
+</div>
+<div className="grid grid-cols-3 gap-2 mt-6">
+<div className={"bg-gradient-to-br from-amber-900/25 to-stone-900/40 border border-amber-700/40 rounded-xl p-3 fadeUp "+(dn.length>0?'dueGlow':'')} style={{animationDelay:'60ms'}}><div className="text-[9px] uppercase tracking-[0.18em] text-amber-500/90 font-mono">Due now</div><div className="font-mono text-2xl text-amber-200 mt-1 num-tabular">{fm(dnA)}</div><div className="text-[10px] text-stone-500 font-mono mt-0.5">{dn.length} day{dn.length!==1?'s':''}</div></div>
+<div className={"bg-gradient-to-br from-red-950/40 to-stone-900/40 border border-red-900/40 rounded-xl p-3 fadeUp "+(od.length>0?'overdueGlow':'')} style={{animationDelay:'120ms'}}><div className="text-[9px] uppercase tracking-[0.18em] text-red-400/90 font-mono">Overdue</div><div className="font-mono text-2xl text-red-200 mt-1 num-tabular">{fm(odA)}</div><div className="text-[10px] text-stone-500 font-mono mt-0.5">{od.length} day{od.length!==1?'s':''}</div></div>
+<div className="bg-stone-900/60 border border-stone-800 rounded-xl p-3 fadeUp" style={{animationDelay:'180ms'}}><div className="text-[9px] uppercase tracking-[0.18em] text-stone-400 font-mono">This week</div><div className="font-mono text-2xl text-stone-200 mt-1 num-tabular">{fm(twA)}</div><div className="text-[10px] text-stone-600 font-mono mt-0.5">{tw.length} day{tw.length!==1?'s':''}</div></div>
+</div>
+</div>
+<div className="flex border-b border-stone-800 sticky top-0 bg-stone-950/95 backdrop-blur z-10">
+{[{id:'pending',label:'Pending',count:pn.length},{id:'paid',label:'Paid',count:null},{id:'summary',label:'Boss',count:null}].map(function(x){return (<button key={x.id} onClick={function(){sTb(x.id)}} className={"flex-1 py-3 text-[11px] uppercase tracking-[0.25em] font-mono smooth "+(tb===x.id?'text-amber-300':'text-stone-500')}><span className="relative">{x.label}{x.count!==null&&x.count>0&&<span className="ml-1.5 text-amber-500/70">·{x.count}</span>}{tb===x.id&&<span className="absolute -bottom-3 left-0 right-0 h-[2px] bg-amber-400"></span>}</span></button>)})}
+</div>
+{tb==='pending'&&(<div className="p-4 space-y-3 fadeIn">
+{pn.length===0&&(<div className="text-center py-20 fadeUp"><Sp className="mx-auto text-amber-600/60 mb-3" size={28}/><div className="text-stone-400 font-mono text-sm">All caught up.</div></div>)}
+{gbw(pn,t).map(function(w,i){return <WC key={w.weekStart} week={w} onPay={function(){oPW(w)}} onEdit={oE} onDelete={dE} index={i}/>})}
+</div>)}
+{tb==='paid'&&(<div className="p-4 space-y-3 fadeIn">
+{py.length===0?(<div className="text-center py-20 text-stone-500 font-mono text-sm">No payments yet.</div>):py.slice().sort(function(a,b){return b.date.localeCompare(a.date)}).map(function(p,i){var ets=pd.filter(function(e){return e.paymentId===p.id});var cc=ets.reduce(function(s,e){return s+(+e.wage||0)+(+e.charges||0)},0);var df=p.amount-cc;return (<div key={p.id} className="bg-stone-900/80 border border-stone-800 rounded-2xl overflow-hidden fadeUp smooth" style={{animationDelay:i*50+'ms'}}>
+<div className="p-4 border-b border-stone-800 flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[10px] uppercase tracking-[0.3em] text-emerald-400/80 font-mono flex items-center gap-1.5"><Ck size={11} strokeWidth={2.5}/> Paid {fd(p.date)}</div><div className="font-serif italic text-xl text-amber-100 mt-1 truncate">{p.note}</div>{cc>0&&df!==0&&(<div className={"text-[10px] font-mono mt-1.5 "+(df>0?'text-emerald-400':'text-amber-400')}>{df>0?'+':''}{df} vs calc £{cc}</div>)}</div><div className="text-right shrink-0"><div className="font-mono text-3xl text-amber-200 num-tabular leading-none">£{p.amount}</div></div></div>
+{ets.length>0&&(<div className="bg-stone-950/60 px-2 pb-2">{ets.slice().sort(function(a,b){return a.date.localeCompare(b.date)}).map(function(e){var mi=!e.wage&&!e.charges;return (<div key={e.id} className="flex items-center justify-between px-2.5 py-2 rounded-lg smooth"><div className="flex-1 min-w-0 flex items-baseline gap-3"><span className="font-mono text-xs text-stone-500 shrink-0 w-[68px]">{fd(e.date)}</span><span className="font-mono text-xs text-stone-300 num-tabular shrink-0">{e.wage?'£'+e.wage:''}{e.wage&&e.charges?' + ':''}{e.charges?'£'+e.charges:''}{mi&&<span className="text-amber-500/80 flex items-center gap-1"><Al size={11}/> missing</span>}</span></div><button onClick={function(){oE(e)}} className="text-stone-500 p-1.5 smooth tap-scale shrink-0"><Pencil size={12}/></button></div>)})}</div>)}
+</div>)})}
+</div>)}
+{tb==='summary'&&(<div className="p-4 space-y-4 fadeIn">
+<div className="bg-stone-900/80 border border-stone-800 rounded-xl p-4 fadeUp"><div className="text-[10px] uppercase tracking-[0.3em] text-amber-700 font-mono mb-3 flex items-center gap-1.5"><Sn size={11}/> Message for boss</div><pre className="whitespace-pre-wrap font-mono text-xs text-stone-300 leading-relaxed">{gS()}</pre></div>
+<button onClick={function(){cp(gS())}} className="w-full py-3 bg-amber-500 text-stone-950 rounded-xl font-mono font-bold uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-2 smooth tap-scale fadeUp"><Copy size={14}/> Copy message</button>
+</div>)}
+<button onClick={oA} className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 text-stone-950 rounded-full shadow-2xl shadow-amber-900/60 flex items-center justify-center smooth tap-scale z-20"><Plus size={26} strokeWidth={2.5}/></button>
+{sF&&(<Md onClose={function(){sSF(false)}} title={eI?'Edit entry':'New entry'}>
+<Fl label="Date"><input type="date" value={fo.date} onChange={function(e){sFo(Object.assign({},fo,{date:e.target.value}))}} className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-3 text-amber-50 font-mono smooth"/></Fl>
+<div className="grid grid-cols-2 gap-3">
+<Fl label="Wage £" hint="hours pay"><input type="number" inputMode="decimal" placeholder="36" value={fo.wage} onChange={function(e){sFo(Object.assign({},fo,{wage:e.target.value}))}} className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-3 text-amber-50 font-mono text-lg num-tabular smooth"/></Fl>
+<Fl label="Charges £" hint="tips"><input type="number" inputMode="decimal" placeholder="0" value={fo.charges} onChange={function(e){sFo(Object.assign({},fo,{charges:e.target.value}))}} className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-3 text-amber-50 font-mono text-lg num-tabular smooth"/></Fl>
+</div>
+{(+fo.wage||+fo.charges)?(<div className="text-[11px] text-stone-500 font-mono text-center">Day total: <span className="text-amber-300 num-tabular">£{(+fo.wage||0)+(+fo.charges||0)}</span></div>):null}
+<Fl label="Notes"><input type="text" value={fo.notes} onChange={function(e){sFo(Object.assign({},fo,{notes:e.target.value}))}} className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-3 text-amber-50 font-mono text-sm smooth"/></Fl>
+<button onClick={sub} className="w-full py-3 bg-amber-500 text-stone-950 rounded-xl font-mono font-bold uppercase tracking-[0.2em] text-xs smooth tap-scale">Save</button>
+</Md>)}
+{sP&&(<Md onClose={function(){sSP(false)}} title="Mark as paid">
+{pC.label&&(<div className="bg-stone-950 border border-stone-800 rounded-lg p-3 text-center"><div className="text-[10px] uppercase tracking-[0.25em] text-amber-700 font-mono">Week</div><div className="font-serif italic text-lg text-amber-100 mt-0.5">{pC.label}</div><div className="text-[11px] text-stone-500 font-mono mt-1">Calculated: <span className="text-amber-300 num-tabular">£{pC.expected}</span></div></div>)}
+<Fl label="Amount paid £"><input type="number" inputMode="decimal" value={pA} onChange={function(e){sPA(e.target.value)}} className="w-full bg-stone-950 border-2 border-amber-700/50 rounded-lg px-3 py-4 text-amber-100 font-mono text-2xl num-tabular smooth text-center"/></Fl>
+<Fl label="Date paid"><input type="date" value={pD} onChange={function(e){sPD(e.target.value)}} className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-3 text-amber-50 font-mono smooth"/></Fl>
+<button onClick={sPay} className="w-full py-3 bg-amber-500 text-stone-950 rounded-xl font-mono font-bold uppercase tracking-[0.2em] text-xs smooth tap-scale">Confirm</button>
+</Md>)}
+{sS&&(<Md onClose={function(){sSS(false)}} title="Share & friends">
+<div className="text-[11px] text-stone-400 font-mono leading-relaxed">Data is private to your phone. Friends opening the URL get their own version.</div>
+<div className="bg-stone-950 border border-stone-800 rounded-lg p-3"><pre className="whitespace-pre-wrap font-mono text-[11px] text-stone-300">{sm}</pre></div>
+<button onClick={function(){cp(sm)}} className="w-full py-3 bg-amber-500 text-stone-950 rounded-xl font-mono font-bold uppercase tracking-[0.2em] text-xs smooth tap-scale flex items-center justify-center gap-2"><Copy size={14}/> Copy invite</button>
+<button onClick={sFr} className="w-full py-2.5 border border-stone-800 rounded-lg font-mono text-[11px] text-stone-400 smooth tap-scale">Clear all data</button>
+<button onClick={rA} className="w-full py-2.5 border border-stone-800 rounded-lg font-mono text-[10px] text-stone-600 smooth tap-scale">Restore original data</button>
+</Md>)}
+{sR&&(<Md onClose={function(){sSR(false)}} title="Rename">
+<Fl label="Name"><input type="text" value={rV} onChange={function(e){sRV(e.target.value)}} maxLength={20} className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-3 text-amber-50 font-serif italic text-2xl smooth"/></Fl>
+<button onClick={function(){svV(rV.trim()||'Pepes');sSR(false);tt('Renamed')}} className="w-full py-3 bg-amber-500 text-stone-950 rounded-xl font-mono font-bold uppercase tracking-[0.2em] text-xs smooth tap-scale">Save</button>
+</Md>)}
+{to&&(<div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-amber-500 text-stone-950 px-4 py-2 rounded-full font-mono text-xs z-50 font-bold fadeUp">{to}</div>)}
+</div>);
+}
+
+function WC(p){
+var w=p.week,cm={dueNow:{l:'Due now',b:'from-amber-950/35 to-stone-900',bd:'border-amber-900/50',tx:'text-amber-400',ac:'bg-amber-900/25 text-amber-200',g:'dueGlow'},overdue:{l:'Overdue',b:'from-red-950/30 to-stone-900',bd:'border-red-900/50',tx:'text-red-400',ac:'bg-red-950/35 text-red-200',g:'overdueGlow'},thisWeek:{l:'This week',b:'from-stone-900 to-stone-900',bd:'border-stone-800',tx:'text-stone-400',ac:'',g:''}}[w.status];
+return (<div className={"bg-gradient-to-br "+cm.b+" border "+cm.bd+" rounded-2xl overflow-hidden fadeUp smooth "+cm.g} style={{animationDelay:p.index*60+'ms'}}>
+<div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3"><div className="min-w-0"><div className={"text-[10px] uppercase tracking-[0.3em] font-mono "+cm.tx}>{cm.l}</div><div className="font-serif italic text-xl text-amber-100 mt-1 truncate">{fwr(w.weekStart,w.weekEnd)}</div><div className="text-[10px] text-stone-500 font-mono mt-1">{w.entries.length} day{w.entries.length!==1?'s':''} · £{w.wage} wage + £{w.charges} tips</div></div><div className="text-right shrink-0"><div className="text-[9px] uppercase tracking-[0.2em] text-stone-500 font-mono">Total</div><div className="font-mono text-3xl text-amber-200 num-tabular leading-none mt-0.5">£{w.total}</div></div></div>
+<div className="px-2 pb-1">{w.entries.map(function(e){var mi=!e.wage&&!e.charges;return (<div key={e.id} className="flex items-center justify-between px-3 py-2 rounded-lg smooth"><div className="flex-1 min-w-0 flex items-baseline gap-3"><span className="font-mono text-xs text-stone-400 shrink-0 w-[68px]">{fd(e.date)}</span><span className="font-mono text-sm text-stone-200 num-tabular shrink-0">{e.wage?'£'+e.wage:''}{e.wage&&e.charges?' + ':''}{e.charges?'£'+e.charges:''}{mi&&<span className="text-amber-500/90 flex items-center gap-1 text-xs"><Al size={11}/> missing</span>}</span>{e.notes&&<span className="text-[10px] text-stone-500 italic truncate">{e.notes}</span>}</div><div className="flex items-center gap-0.5 shrink-0"><button onClick={function(){p.onEdit(e)}} className="text-stone-500 p-1.5 smooth tap-scale"><Pencil size={12}/></button><button onClick={function(){p.onDelete(e.id)}} className="text-stone-500 p-1.5 smooth tap-scale"><Trash size={12}/></button></div></div>)})}</div>
+{w.status!=='thisWeek'?(<button onClick={p.onPay} className={"w-full py-3.5 border-t "+cm.bd+" font-mono text-xs uppercase tracking-[0.25em] smooth tap-scale flex items-center justify-center gap-2 "+cm.ac}><Wa size={14} strokeWidth={2.5}/> Mark paid <span className="text-stone-500">·</span> <span className="num-tabular">£{w.total}</span></button>):(<div className={"text-[10px] text-stone-600 font-mono text-center py-3 border-t "+cm.bd+" italic"}>Payment expected next week</div>)}
+</div>);
+}
+
+function Md(p){return (<div className="fixed inset-0 z-50 flex items-end fadeIn" onClick={p.onClose}><div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div><div className="relative w-full bg-stone-900 border-t border-amber-800/30 rounded-t-3xl p-6 space-y-4 max-h-[88vh] overflow-y-auto slideUp" onClick={function(e){e.stopPropagation()}}><div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-stone-700 rounded-full"></div><div className="flex items-center justify-between pt-2"><div className="font-serif text-xl text-amber-100 italic">{p.title}</div><button onClick={p.onClose} className="text-stone-500 p-1 smooth tap-scale"><X size={20}/></button></div>{p.children}</div></div>)}
+function Fl(p){return (<label className="block"><div className="flex items-baseline justify-between mb-2"><div className="text-[10px] uppercase tracking-[0.3em] text-amber-700 font-mono">{p.label}</div>{p.hint&&<div className="text-[9px] text-stone-600 font-mono italic">{p.hint}</div>}</div>{p.children}</label>)}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
